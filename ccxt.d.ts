@@ -553,6 +553,7 @@ declare module 'ccxt' {
     export class okex extends okcoinusd {}
     export class okex3 extends Exchange {}
     export class paymium extends Exchange {}
+    export class payruedex extends Exchange {}
     export class poloniex extends Exchange {}
     export class rightbtc extends Exchange {}
     export class southxchange extends Exchange {}

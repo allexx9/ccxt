@@ -170,6 +170,7 @@ from ccxt.okcoinusd import okcoinusd                        # noqa: F401
 from ccxt.okex import okex                                  # noqa: F401
 from ccxt.okex3 import okex3                                # noqa: F401
 from ccxt.paymium import paymium                            # noqa: F401
+from ccxt.payruedex import payruedex                        # noqa: F401
 from ccxt.poloniex import poloniex                          # noqa: F401
 from ccxt.rightbtc import rightbtc                          # noqa: F401
 from ccxt.southxchange import southxchange                  # noqa: F401
@@ -294,6 +295,7 @@ exchanges = [
     'okex',
     'okex3',
     'paymium',
+    'payruedex',
     'poloniex',
     'rightbtc',
     'southxchange',

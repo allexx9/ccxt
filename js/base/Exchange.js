@@ -30,16 +30,14 @@ const {
     , defaultFetch
 } = functions
 
-const {
-    ExchangeError
+const { ExchangeError
     , BadSymbol
     , InvalidAddress
     , NotSupported
     , AuthenticationError
     , DDoSProtection
     , RequestTimeout
-    , ExchangeNotAvailable
-    , RateLimitExceeded } = require ('./errors')
+    , ExchangeNotAvailable } = require ('./errors')
 
 const { TRUNCATE, ROUND, DECIMAL_PLACES } = functions.precisionConstants
 
@@ -52,11 +50,13 @@ let Web3 = undefined
     , ethAbi = undefined
     , ethUtil = undefined
     , BigNumber = undefined
+    , ethersUtils = undefined;
 
 try {
     const requireFunction = require;
     Web3      = requireFunction ('web3') // eslint-disable-line global-require
     ethAbi    = requireFunction ('ethereumjs-abi') // eslint-disable-line global-require
+    ethersUtils    = requireFunction ('ethers') // eslint-disable-line global-require
     ethUtil   = requireFunction ('ethereumjs-util') // eslint-disable-line global-require
     BigNumber = requireFunction ('bignumber.js') // eslint-disable-line global-require
     // we prefer bignumber.js over BN.js
@@ -105,7 +105,6 @@ module.exports = class Exchange {
                 'fetchOrderBook': true,
                 'fetchOrderBooks': false,
                 'fetchOrders': false,
-                'fetchOrderTrades': false,
                 'fetchStatus': 'emulated',
                 'fetchTicker': true,
                 'fetchTickers': false,
@@ -166,7 +165,7 @@ module.exports = class Exchange {
             'httpExceptions': {
                 '422': ExchangeError,
                 '418': DDoSProtection,
-                '429': RateLimitExceeded,
+                '429': DDoSProtection,
                 '404': ExchangeNotAvailable,
                 '409': ExchangeNotAvailable,
                 '500': ExchangeNotAvailable,
@@ -258,13 +257,12 @@ module.exports = class Exchange {
         this.walletAddress = undefined // a wallet address "0x"-prefixed hexstring
         this.token         = undefined // reserved for HTTP auth in some cases
 
-        this.balance      = {}
-        this.orderbooks   = {}
-        this.tickers      = {}
-        this.orders       = {}
-        this.trades       = {}
+        this.balance     = {}
+        this.orderbooks  = {}
+        this.tickers     = {}
+        this.orders      = {}
+        this.trades      = {}
         this.transactions = {}
-        this.ohlcvs       = {}
 
         this.requiresWeb3 = false
         this.precision = {}
@@ -411,7 +409,7 @@ module.exports = class Exchange {
     }
 
     setSandboxMode (enabled) {
-        if (!!enabled) {
+        if (enabled) {
             if ('test' in this.urls) {
                 if (typeof this.urls['api'] === 'string') {
                     this.urls['api_backup'] = this.urls['api']
@@ -437,16 +435,16 @@ module.exports = class Exchange {
         for (const type of Object.keys (api)) {
             for (const httpMethod of Object.keys (api[type])) {
 
-                let paths = api[type][httpMethod]
+                const paths = api[type][httpMethod]
                 for (let i = 0; i < paths.length; i++) {
-                    let path = paths[i].trim ()
-                    let splitPath = path.split (/[^a-zA-Z0-9]/)
+                    const path = paths[i].trim ()
+                    const splitPath = path.split (/[^a-zA-Z0-9]/)
 
-                    let uppercaseMethod  = httpMethod.toUpperCase ()
-                    let lowercaseMethod  = httpMethod.toLowerCase ()
-                    let camelcaseMethod  = this.capitalize (lowercaseMethod)
-                    let camelcaseSuffix  = splitPath.map (this.capitalize).join ('')
-                    let underscoreSuffix = splitPath.map (x => x.trim ().toLowerCase ()).filter (x => x.length > 0).join ('_')
+                    const uppercaseMethod  = httpMethod.toUpperCase ()
+                    const lowercaseMethod  = httpMethod.toLowerCase ()
+                    const camelcaseMethod  = this.capitalize (lowercaseMethod)
+                    const camelcaseSuffix  = splitPath.map (this.capitalize).join ('')
+                    const underscoreSuffix = splitPath.map (x => x.trim ().toLowerCase ()).filter (x => x.length > 0).join ('_')
 
                     let camelcase  = type + camelcaseMethod + this.capitalize (camelcaseSuffix)
                     let underscore = type + '_' + lowercaseMethod + '_' + underscoreSuffix
@@ -463,7 +461,7 @@ module.exports = class Exchange {
                     if ('camelcase_suffix' in options)
                         camelcase += options.camelcaseSuffix;
 
-                    let partial = async params => this[methodName] (path, type, uppercaseMethod, params || {})
+                    const partial = async params => this[methodName] (path, type, uppercaseMethod, params || {})
 
                     this[camelcase]  = partial
                     this[underscore] = partial
@@ -637,7 +635,7 @@ module.exports = class Exchange {
             'limits': this.limits,
             'precision': this.precision,
         }, this.fees['trading'], market))
-        this.markets = indexBy (values, 'symbol')
+        this.markets = deepExtend (this.markets, indexBy (values, 'symbol'))
         this.marketsById = indexBy (markets, 'id')
         this.markets_by_id = this.marketsById
         this.symbols = Object.keys (this.markets).sort ()
@@ -942,13 +940,13 @@ module.exports = class Exchange {
 
     parseBalance (balance) {
 
-        const currencies = Object.keys (this.omit (balance, [ 'info', 'free', 'used', 'total' ]));
+        const currencies = Object.keys (this.omit (balance, 'info'));
 
         balance['free'] = {}
         balance['used'] = {}
         balance['total'] = {}
 
-        for (const currency of currencies) {
+        currencies.forEach ((currency) => {
 
             if (balance[currency].total === undefined) {
                 if (balance[currency].free !== undefined && balance[currency].used !== undefined) {
@@ -966,10 +964,11 @@ module.exports = class Exchange {
                 }
             }
 
-            balance.free[currency] = balance[currency].free
-            balance.used[currency] = balance[currency].used
-            balance.total[currency] = balance[currency].total
-        }
+            [ 'free', 'used', 'total' ].forEach ((account) => {
+                balance[account] = balance[account] || {}
+                balance[account][currency] = balance[currency][account]
+            })
+        })
 
         return balance
     }
@@ -993,8 +992,8 @@ module.exports = class Exchange {
 
     async fetchStatus (params = {}) {
         if (this.has['fetchTime']) {
-            const time = await this.fetchTime(params)
-            return this.status = this.extend(this.status, {
+            const time = await this.fetchTime (params)
+            return this.status = this.extend (this.status, {
                 'updated': time,
             })
         }
@@ -1248,12 +1247,12 @@ module.exports = class Exchange {
     // ------------------------------------------------------------------------
     // web3 / 0x methods
     static hasWeb3 () {
-        return Web3 && ethUtil && ethAbi && BigNumber
+        return Web3 && ethUtil && ethAbi && BigNumber && ethersUtils
     }
 
     checkRequiredDependencies () {
         if (!Exchange.hasWeb3 ()) {
-            throw new ExchangeError ("Required dependencies missing: \nnpm i web3 ethereumjs-util ethereumjs-abi bignumber.js --no-save");
+            throw new ExchangeError ("Required dependencies missing: \nnpm i web3 ethereumjs-util ethereumjs-abi ethers bignumber.js  --no-save");
         }
     }
 
@@ -1356,6 +1355,41 @@ module.exports = class Exchange {
             order['expirationUnixTimestampSec'], // uint256
             order['salt'], // uint256
         ]);
+    }
+
+    getPayRueDexOrderHash (request) {
+        console.log (request);
+        const types = [
+            'address',
+            'uint8',
+            'address',
+            'address',
+            'address',
+            'address',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+        ];
+        const values = [
+            '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
+            request['direction'],
+            this.web3.utils.toChecksumAddress (request['address'].toLowerCase ()),
+            this.web3.utils.toChecksumAddress (request['tokenBaseAddress'].toLowerCase ()),
+            this.web3.utils.toChecksumAddress (request['tokenQuoteAddress'].toLowerCase ()),
+            this.web3.utils.toChecksumAddress (request['tokenFeeAddress'].toLowerCase ()),
+            request['amount'],
+            request['priceNumerator'],
+            request['priceDenominator'],
+            request['feeNumerator'],
+            request['feeDenominator'],
+            '340282366920938463463374607431768211455',
+            request['nonce'],
+        ];
+        return '0x' +  ethAbi.soliditySHA3 (types, values).toString ('hex');
     }
 
     getZeroExOrderHashV2 (order) {
@@ -1472,6 +1506,19 @@ module.exports = class Exchange {
             'r': '0x' + signature['r'],
             's': '0x' + signature['s'],
             'v': 27 + signature['v'],
+        }
+    }
+
+    signPayrueMessage (hash, privateKey) {
+        const bytesMsg = ethersUtils.utils.arrayify (hash);
+        const account = this.web3.eth.accounts.privateKeyToAccount (privateKey);
+        const flatSignature = account.sign (bytesMsg);
+        console.log ("flat signature is", flatSignature);
+        const vrsSignature = ethersUtils.utils.splitSignature (flatSignature);
+        return {
+            v: vrsSignature.v,
+            r: vrsSignature.r,
+            s: vrsSignature.s,
         }
     }
 

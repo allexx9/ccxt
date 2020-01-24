@@ -187,6 +187,7 @@ class Exchange {
         'okex',
         'okex3',
         'paymium',
+        'payruedex',
         'poloniex',
         'rightbtc',
         'southxchange',

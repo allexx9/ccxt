@@ -47,7 +47,13 @@
     "postinstall": "node postinstall"
   },
   "types": "./ccxt.d.ts",
-  "dependencies": {},
+  "dependencies": {
+    "bignumber.js": "^9.0.0",
+    "ethereumjs-abi": "^0.6.8",
+    "ethereumjs-util": "^6.2.0",
+    "ethers": "^4.0.43",
+    "web3": "^1.2.5-rc.0"
+  },
   "devDependencies": {
     "ansicolor": "1.1.81",
     "as-table": "1.0.37",
@@ -488,7 +494,9 @@
     "BW",
     "timex.io",
     "TimeX",
-    "bitz.com"
+    "bitz.com",
+    "18.218.80.16",
+    "payruedex"
   ],
   "collective": {
     "type": "opencollective",
