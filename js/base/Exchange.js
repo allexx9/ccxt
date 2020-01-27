@@ -64,7 +64,6 @@ try {
 } catch (e) {
     // nothing
 }
-
 // ----------------------------------------------------------------------------
 
 module.exports = class Exchange {
@@ -315,8 +314,9 @@ module.exports = class Exchange {
             this.setMarkets (this.markets)
 
         if (this.requiresWeb3 && !this.web3 && Web3) {
-            const provider = (this.web3ProviderURL) ? new Web3.providers.HttpProvider (this.web3ProviderURL) : new Web3.providers.HttpProvider ()
-            this.web3 = new Web3 (Web3.givenProvider || provider)
+            this.web3 = new Web3 (new Web3.providers.HttpProvider ('http://localhost:8545'))
+            // const provider = (this.web3ProviderURL) ? new Web3.providers.HttpProvider (this.web3ProviderURL) : new Web3.providers.HttpProvider ()
+            // this.web3 = new Web3 (Web3.givenProvider || provider)
         }
     }
 
@@ -1377,10 +1377,10 @@ module.exports = class Exchange {
         const values = [
             '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
             request['direction'],
-            this.web3.utils.toChecksumAddress (request['address'].toLowerCase ()),
-            this.web3.utils.toChecksumAddress (request['tokenBaseAddress'].toLowerCase ()),
-            this.web3.utils.toChecksumAddress (request['tokenQuoteAddress'].toLowerCase ()),
-            this.web3.utils.toChecksumAddress (request['tokenFeeAddress'].toLowerCase ()),
+            request['address'].toLowerCase (),
+            request['tokenBaseAddress'].toLowerCase (),
+            request['tokenQuoteAddress'].toLowerCase (),
+            request['tokenFeeAddress'].toLowerCase (),
             request['amount'],
             request['priceNumerator'],
             request['priceDenominator'],
@@ -1389,7 +1389,9 @@ module.exports = class Exchange {
             '340282366920938463463374607431768211455',
             request['nonce'],
         ];
-        return '0x' +  ethAbi.soliditySHA3 (types, values).toString ('hex');
+        const hash = ethersUtils.utils.solidityKeccak256 (types, values);
+        console.log (hash);
+        return hash;
     }
 
     getZeroExOrderHashV2 (order) {

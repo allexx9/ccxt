@@ -32,6 +32,7 @@ module.exports = class payruedex extends Exchange {
                 'fetchMarkets': true,
                 'fetchBalance': true,
                 'createOrder': true,
+                'fetchOHLCV': 'emulated',
                 'cancelOrder': true,
                 'fetchOpenOrders': true,
                 'fetchTrades': false,
@@ -159,6 +160,8 @@ module.exports = class payruedex extends Exchange {
     }
 
     parseTicker (ticker, market = undefined) {
+        console.log (ticker);
+        console.log (market);
         let symbol = undefined;
         if (market) {
             symbol = market['symbol'];
@@ -223,6 +226,80 @@ module.exports = class payruedex extends Exchange {
             'quoteVolume': baseVolume,
             'info': ticker,
         };
+    }
+
+    async fetchOHLCV (symbol, timeframe = '1h', since = undefined, limit = undefined, params = {}) {
+        await this.loadMarkets ();
+        // let market = this.market (symbol);
+        const ids = symbol.split ('/');
+        //
+        //  const request = {
+        //     'time_range': interval,
+        // };
+        //
+        const parameters = {
+            'tm_access_key': this.apiKey,  // 507d181c-69be-4a00-92ae-7fa89ccfcf27
+            'exchange': 'ethereum', // ethereum
+        };
+        const response = await this.publicGetInfo (this.extend (parameters, params));
+        const tokenpairs = response['tokenPairs'];
+        let result = {};
+        for (let i = 0; i < tokenpairs.length; i++) {
+            // console.log (tokenpairs[i]['tokenBase']['symbol']);
+            // console.log (ids[0]);
+            if (tokenpairs[i]['tokenBase']['symbol'] === ids[0]) {
+                result = tokenpairs[i];
+            }
+        }
+        // console.log (result);
+        const baseVolume = this.safeFloat (result, 'totalVolume');
+        const baseDecimals = result['tokenBase']['decimalPlaces'];
+        const quoteDecimals = result['tokenQuote']['decimalPlaces'];
+        const priceLastNum = result['priceLastNumerator'];
+        const priceLastDenum = result['priceLastDenominator'];
+        const priceHighNum = result['priceHighNumerator'];
+        const priceHighDenum = result['priceHighDenominator'];
+        const priceLowNum = result['priceLowNumerator'];
+        const priceLowDenum = result['priceLowDenominator'];
+        let priceLast = 0;
+        if (priceLastNum !== 0) {
+            priceLast = this.getPrice (quoteDecimals, baseDecimals, priceLastNum, priceLastDenum);
+        }
+        let priceHigh = 0;
+        if (priceLastNum !== 0) {
+            priceHigh = this.getPrice (quoteDecimals, baseDecimals, priceHighNum, priceHighDenum);
+        }
+        let priceLow = 0;
+        if (priceLastNum !== 0) {
+            priceLow = this.getPrice (quoteDecimals, baseDecimals, priceLowNum, priceLowDenum);
+        }
+        // const ohlcvElement = {
+        //     'date': this.milliseconds (), // utc timestamp millis
+        //     'open': priceLast, // open price float
+        //     'high': priceHigh, // highest float
+        //     'low': priceLow, // lowest float
+        //     'close': priceLast, // closing
+        //     'volume': baseVolume, // volume
+        // };
+        const ohlcvElement1 = [
+            this.milliseconds (), // utc timestamp millis
+            priceLast, // open price float
+            priceHigh, // highest float
+            priceLow, // lowest float
+            priceLast, // closing
+            baseVolume, // volume
+        ];
+        const ohlcvElement2 = [
+            this.milliseconds (), // utc timestamp millis
+            priceLast, // open price float
+            priceHigh, // highest float
+            priceLow, // lowest float
+            priceLast, // closing
+            baseVolume, // volume
+        ];
+        const ohlcv = [ohlcvElement1, ohlcvElement2];
+        console.log (ohlcv);
+        return ohlcv;
     }
 
     async fetchTickers (symbols = undefined, params = {}) {
@@ -358,36 +435,25 @@ module.exports = class payruedex extends Exchange {
         }
         const tokenAddress = market['info']['tokenBase']['address'];
         if (type === 'limit') {
-            const data = await this.asyncSigning ([
-                'address',
-                'uint8',
-                'address',
-                'address',
-                'address',
-                'address',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-            ], [
-                this.web3.utils.toChecksumAddress ('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
-                sideInt,
-                this.web3.utils.toChecksumAddress (this.walletAddress),
-                this.web3.utils.toChecksumAddress (tokenAddress),
-                this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
-                this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
-                amountBase,
-                numerator,
-                maxDenum,
-                25,
-                10000,
-                (2 ** 128 - 1),
-                nonce,
-            ]);
+            const requestToHash = {
+                'exchange': this.web3.utils.toChecksumAddress ('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
+                'direction': sideInt,
+                'address': this.web3.utils.toChecksumAddress (this.walletAddress),
+                'tokenBaseAddress': this.web3.utils.toChecksumAddress (tokenAddress),
+                'tokenQuoteAddress': this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
+                'tokenFeeAddress': this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
+                'amount': amountBase,
+                'priceNumerator': numerator,
+                'priceDenominator': maxDenum,
+                'feeNumerator': 25,
+                'feeDenominator': 10000,
+                'expirationTimestamp': '340282366920938463463374607431768211455',
+                'nonce': nonce,
+            };
+            const data = await this.getPayRueDexOrderHash (requestToHash);
             console.log (data);
+            const signature = this.signPayrueMessage (data, this.privateKey);
+            console.log (signature);
             const request = {
                 'type': 'limit',
                 'direction': side,
@@ -403,7 +469,7 @@ module.exports = class payruedex extends Exchange {
                 'expirationTimestamp': '340282366920938463463374607431768211455',
                 'exchange': 'ethereum',
                 'makerAddress': this.walletAddress,
-                'signature': data,
+                'signature': signature,
             };
             const response = await this.privatePostSubmitOrder (request); // this.extend (request, params) will cause invalid signature
             return this.parseOrder (response['order'], market);
@@ -421,39 +487,26 @@ module.exports = class payruedex extends Exchange {
                 throw new ExchangeError (market['symbol'] + ' market price is 0');
             }
             const denominator = this.safeInteger (estimatedAmountResponse['estimatedPrice'], 'denominator');
-            const data = await this.asyncSigning ([
-                'address',
-                'uint8',
-                'address',
-                'address',
-                'address',
-                'address',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-            ], [
-                this.web3.utils.toChecksumAddress ('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
-                sideInt,
-                this.web3.utils.toChecksumAddress (this.walletAddress),
-                this.web3.utils.toChecksumAddress (tokenAddress),
-                this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
-                this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
-                amountBase,
-                numerator,
-                denominator,
-                25,
-                10000,
-                (2 ** 128 - 1),
-                nonce,
-            ]);
+            const requestToHash = {
+                'exchange': this.web3.utils.toChecksumAddress ('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
+                'direction': sideInt,
+                'address': this.web3.utils.toChecksumAddress (this.walletAddress),
+                'tokenBaseAddress': this.web3.utils.toChecksumAddress (tokenAddress),
+                'tokenQuoteAddress': this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
+                'tokenFeeAddress': this.web3.utils.toChecksumAddress ('0x0000000000000000000000000000000000000000'),
+                'amount': amountBase,
+                'priceNumerator': numerator,
+                'priceDenominator': denominator,
+                'feeNumerator': 25,
+                'feeDenominator': 10000,
+                'expirationTimestamp': '340282366920938463463374607431768211455',
+                'nonce': nonce,
+            };
+            console.log (requestToHash);
+            const data = await this.getPayRueDexOrderHash (requestToHash);
             console.log (data);
-            // const signedOrder = this.extend (orderToHash, signature);
-            // signedOrder['address'] = this.walletAddress;
-            // signedOrder['nonce'] = nonce;
+            const signature = this.signPayrueMessage (data, this.privateKey);
+            console.log (signature);
             const request = {
                 'type': type,
                 'direction': side,
@@ -469,7 +522,7 @@ module.exports = class payruedex extends Exchange {
                 'expirationTimestamp': expires,
                 'exchange': 'ethereum',
                 'makerAddress': this.walletAddress,
-                'signature': data,
+                'signature': signature,
             };
             const response = await this.privatePostSubmitOrder (request);
             return this.parseOrder (response['order'], market);
@@ -882,105 +935,6 @@ module.exports = class payruedex extends Exchange {
             request['fee'],
             request['nonce'],
         ]);
-    }
-
-    getPayRueDEXNewOrderHash (request) {
-        return this.soliditySha3 ([
-            '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-            request['direction'] === 'buy' ? 0 : 1,
-            request['address'],
-            request['tokenBaseAddress'],
-            request['tokenQuoteAddress'],
-            request['tokenFeeAddress'],
-            request['amount'],
-            request['priceNumerator'],
-            request['priceDenominator'],
-            request['feeNumerator'],
-            request['feeDenominator'],
-            2 ** 128 - 1,
-            request['nonce'],
-        ]);
-    }
-
-    getPayRueDEXNewOrderHashv3 (request) {
-        console.log (request);
-        return this.soliditySha3 ([
-            '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-            1,
-            '0x3fEaf47f1FDd9c692710818bd1CBfcB49B958050',
-            '0xfca47962d45adfdfd1ab2d972315db4ce7ccf094',
-            '0x0000000000000000000000000000000000000000',
-            '0x0000000000000000000000000000000000000000',
-            2000000,
-            2000000,
-            1,
-            25,
-            10000,
-            2 ** 128 - 1,
-            1575905216951,
-        ]);
-    }
-
-    getPayRueDEXNewOrderHashv2 (request) {
-        const hash = this.EthAbi.soliditySHA3 ([
-            'address',
-            'uint8',
-            'address',
-            'address',
-            'address',
-            'address',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-        ], [
-            '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-            1,
-            this.web3.utils.toChecksumAddress (request['address'].toLowerCase ()),
-            this.web3.utils.toChecksumAddress (request['tokenBaseAddress'].toLowerCase ()),
-            this.web3.utils.toChecksumAddress (request['tokenQuoteAddress'].toLowerCase ()),
-            this.web3.utils.toChecksumAddress (request['tokenFeeAddress'].toLowerCase ()),
-            request['amount'],
-            request['priceNumerator'],
-            request['priceDenominator'],
-            request['feeNumerator'],
-            request['feeDenominator'],
-            2 ** 128 - 1,
-            request['nonce'],
-        ]);
-        return hash;
-        // return this.web3.utils.soliditySha3 ([
-        //     'address',
-        //     'uint8',
-        //     'address',
-        //     'address',
-        //     'address',
-        //     'address',
-        //     'uint256',
-        //     'uint256',
-        //     'uint256',
-        //     'uint256',
-        //     'uint256',
-        //     'uint256',
-        //     'uint256',
-        // ], [
-        //     '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-        //     1,
-        //     this.web3.utils.toChecksumAddress (request['address'].toLowerCase ()),
-        //     this.web3.utils.toChecksumAddress (request['tokenBaseAddress'].toLowerCase ()),
-        //     this.web3.utils.toChecksumAddress (request['tokenQuoteAddress'].toLowerCase ()),
-        //     this.web3.utils.toChecksumAddress (request['tokenFeeAddress'].toLowerCase ()),
-        //     request['amount'],
-        //     request['priceNumerator'],
-        //     request['priceDenominator'],
-        //     request['feeNumerator'],
-        //     request['feeDenominator'],
-        //     2 ** 128 - 1,
-        //     request['nonce'],
-        // ]);
     }
 
     handleErrors (code, reason, url, method, headers, body, response, requestHeaders, requestBody) {

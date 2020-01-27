@@ -30,6 +30,7 @@ class payruedex(Exchange):
                 'fetchMarkets': True,
                 'fetchBalance': True,
                 'createOrder': True,
+                'fetchOHLCV': 'emulated',
                 'cancelOrder': True,
                 'fetchOpenOrders': True,
                 'fetchTrades': False,
@@ -153,6 +154,8 @@ class payruedex(Exchange):
         return result
 
     def parse_ticker(self, ticker, market=None):
+        print(ticker)
+        print(market)
         symbol = None
         if market:
             symbol = market['symbol']
@@ -213,6 +216,74 @@ class payruedex(Exchange):
             'quoteVolume': baseVolume,
             'info': ticker,
         }
+
+    async def fetch_ohlcv(self, symbol, timeframe='1h', since=None, limit=None, params={}):
+        await self.load_markets()
+        # market = self.market(symbol)
+        ids = symbol.split('/')
+        #
+        #  request = {
+        #     'time_range': interval,
+        # }
+        #
+        parameters = {
+            'tm_access_key': self.apiKey,  # 507d181c-69be-4a00-92ae-7fa89ccfcf27
+            'exchange': 'ethereum',  # ethereum
+        }
+        response = await self.publicGetInfo(self.extend(parameters, params))
+        tokenpairs = response['tokenPairs']
+        result = {}
+        for i in range(0, len(tokenpairs)):
+            # print(tokenpairs[i]['tokenBase']['symbol'])
+            # print(ids[0])
+            if tokenpairs[i]['tokenBase']['symbol'] == ids[0]:
+                result = tokenpairs[i]
+        # print(result)
+        baseVolume = self.safe_float(result, 'totalVolume')
+        baseDecimals = result['tokenBase']['decimalPlaces']
+        quoteDecimals = result['tokenQuote']['decimalPlaces']
+        priceLastNum = result['priceLastNumerator']
+        priceLastDenum = result['priceLastDenominator']
+        priceHighNum = result['priceHighNumerator']
+        priceHighDenum = result['priceHighDenominator']
+        priceLowNum = result['priceLowNumerator']
+        priceLowDenum = result['priceLowDenominator']
+        priceLast = 0
+        if priceLastNum != 0:
+            priceLast = self.get_price(quoteDecimals, baseDecimals, priceLastNum, priceLastDenum)
+        priceHigh = 0
+        if priceLastNum != 0:
+            priceHigh = self.get_price(quoteDecimals, baseDecimals, priceHighNum, priceHighDenum)
+        priceLow = 0
+        if priceLastNum != 0:
+            priceLow = self.get_price(quoteDecimals, baseDecimals, priceLowNum, priceLowDenum)
+        # ohlcvElement = {
+        #     'date': self.milliseconds(),  # utc timestamp millis
+        #     'open': priceLast,  # open price float
+        #     'high': priceHigh,  # highest float
+        #     'low': priceLow,  # lowest float
+        #     'close': priceLast,  # closing
+        #     'volume': baseVolume,  # volume
+        # }
+        ohlcvElement1 = [
+            self.milliseconds(),  # utc timestamp millis
+            priceLast,  # open price float
+            priceHigh,  # highest float
+            priceLow,  # lowest float
+            priceLast,  # closing
+            baseVolume,  # volume
+        ]
+        ohlcvElement2 = [
+            self.milliseconds(),  # utc timestamp millis
+            priceLast,  # open price float
+            priceHigh,  # highest float
+            priceLow,  # lowest float
+            priceLast,  # closing
+            baseVolume,  # volume
+        ]
+        ohlcv = [ohlcvElement1, ohlcvElement2]
+        print(ohlcv)
+        return ohlcv
 
     async def fetch_tickers(self, symbols=None, params={}):
         parameters = {
@@ -333,36 +404,25 @@ class payruedex(Exchange):
             sideInt = 1
         tokenAddress = market['info']['tokenBase']['address']
         if type == 'limit':
-            data = await self.async_signing([
-                'address',
-                'uint8',
-                'address',
-                'address',
-                'address',
-                'address',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-            ], [
-                self.web3.utils.toChecksumAddress('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
-                sideInt,
-                self.web3.utils.toChecksumAddress(self.walletAddress),
-                self.web3.utils.toChecksumAddress(tokenAddress),
-                self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
-                self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
-                amountBase,
-                numerator,
-                maxDenum,
-                25,
-                10000,
-                (2 ** 128 - 1),
-                nonce,
-            ])
+            requestToHash = {
+                'exchange': self.web3.utils.toChecksumAddress('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
+                'direction': sideInt,
+                'address': self.web3.utils.toChecksumAddress(self.walletAddress),
+                'tokenBaseAddress': self.web3.utils.toChecksumAddress(tokenAddress),
+                'tokenQuoteAddress': self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
+                'tokenFeeAddress': self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
+                'amount': amountBase,
+                'priceNumerator': numerator,
+                'priceDenominator': maxDenum,
+                'feeNumerator': 25,
+                'feeDenominator': 10000,
+                'expirationTimestamp': '340282366920938463463374607431768211455',
+                'nonce': nonce,
+            }
+            data = await self.getPayRueDexOrderHash(requestToHash)
             print(data)
+            signature = self.signPayrueMessage(data, self.privateKey)
+            print(signature)
             request = {
                 'type': 'limit',
                 'direction': side,
@@ -378,7 +438,7 @@ class payruedex(Exchange):
                 'expirationTimestamp': '340282366920938463463374607431768211455',
                 'exchange': 'ethereum',
                 'makerAddress': self.walletAddress,
-                'signature': data,
+                'signature': signature,
             }
             response = await self.privatePostSubmitOrder(request)  # self.extend(request, params) will cause invalid signature
             return self.parse_order(response['order'], market)
@@ -395,39 +455,26 @@ class payruedex(Exchange):
             if numerator == 0:
                 raise ExchangeError(market['symbol'] + ' market price is 0')
             denominator = self.safe_integer(estimatedAmountResponse['estimatedPrice'], 'denominator')
-            data = await self.async_signing([
-                'address',
-                'uint8',
-                'address',
-                'address',
-                'address',
-                'address',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-            ], [
-                self.web3.utils.toChecksumAddress('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
-                sideInt,
-                self.web3.utils.toChecksumAddress(self.walletAddress),
-                self.web3.utils.toChecksumAddress(tokenAddress),
-                self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
-                self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
-                amountBase,
-                numerator,
-                denominator,
-                25,
-                10000,
-                (2 ** 128 - 1),
-                nonce,
-            ])
+            requestToHash = {
+                'exchange': self.web3.utils.toChecksumAddress('0x205b2af20A899ED61788300C5b268c512D6b1CCE'),
+                'direction': sideInt,
+                'address': self.web3.utils.toChecksumAddress(self.walletAddress),
+                'tokenBaseAddress': self.web3.utils.toChecksumAddress(tokenAddress),
+                'tokenQuoteAddress': self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
+                'tokenFeeAddress': self.web3.utils.toChecksumAddress('0x0000000000000000000000000000000000000000'),
+                'amount': amountBase,
+                'priceNumerator': numerator,
+                'priceDenominator': denominator,
+                'feeNumerator': 25,
+                'feeDenominator': 10000,
+                'expirationTimestamp': '340282366920938463463374607431768211455',
+                'nonce': nonce,
+            }
+            print(requestToHash)
+            data = await self.getPayRueDexOrderHash(requestToHash)
             print(data)
-            # signedOrder = self.extend(orderToHash, signature)
-            # signedOrder['address'] = self.walletAddress
-            # signedOrder['nonce'] = nonce
+            signature = self.signPayrueMessage(data, self.privateKey)
+            print(signature)
             request = {
                 'type': type,
                 'direction': side,
@@ -443,7 +490,7 @@ class payruedex(Exchange):
                 'expirationTimestamp': expires,
                 'exchange': 'ethereum',
                 'makerAddress': self.walletAddress,
-                'signature': data,
+                'signature': signature,
             }
             response = await self.privatePostSubmitOrder(request)
             return self.parse_order(response['order'], market)
@@ -509,7 +556,7 @@ class payruedex(Exchange):
         return numerator / denominator / decimalAdjustment
 
     def get_test_sign(self):
-        sign = self.get_pay_rue_dex_new_order_hashv3()
+        sign = self.getPayRueDEXNewOrderHashv3()
         orderHashString = self.web3.utils.toHex(sign)
         message = self.signMessage(orderHashString, self.privateKey)
         print(sign)
@@ -810,102 +857,6 @@ class payruedex(Exchange):
             request['fee'],
             request['nonce'],
         ])
-
-    def get_pay_rue_dex_new_order_hash(self, request):
-        return self.soliditySha3([
-            '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-            request['direction'] == 0 if 'buy' else 1,
-            request['address'],
-            request['tokenBaseAddress'],
-            request['tokenQuoteAddress'],
-            request['tokenFeeAddress'],
-            request['amount'],
-            request['priceNumerator'],
-            request['priceDenominator'],
-            request['feeNumerator'],
-            request['feeDenominator'],
-            2 ** 128 - 1,
-            request['nonce'],
-        ])
-
-    def get_pay_rue_dex_new_order_hashv3(self, request):
-        print(request)
-        return self.soliditySha3([
-            '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-            1,
-            '0x3fEaf47f1FDd9c692710818bd1CBfcB49B958050',
-            '0xfca47962d45adfdfd1ab2d972315db4ce7ccf094',
-            '0x0000000000000000000000000000000000000000',
-            '0x0000000000000000000000000000000000000000',
-            2000000,
-            2000000,
-            1,
-            25,
-            10000,
-            2 ** 128 - 1,
-            1575905216951,
-        ])
-
-    def get_pay_rue_dex_new_order_hashv2(self, request):
-        hash = self.EthAbi.soliditySHA3([
-            'address',
-            'uint8',
-            'address',
-            'address',
-            'address',
-            'address',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-        ], [
-            '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-            1,
-            self.web3.utils.toChecksumAddress(request['address'].lower()),
-            self.web3.utils.toChecksumAddress(request['tokenBaseAddress'].lower()),
-            self.web3.utils.toChecksumAddress(request['tokenQuoteAddress'].lower()),
-            self.web3.utils.toChecksumAddress(request['tokenFeeAddress'].lower()),
-            request['amount'],
-            request['priceNumerator'],
-            request['priceDenominator'],
-            request['feeNumerator'],
-            request['feeDenominator'],
-            2 ** 128 - 1,
-            request['nonce'],
-        ])
-        return hash
-        # return self.web3.utils.soliditySha3([
-        #     'address',
-        #     'uint8',
-        #     'address',
-        #     'address',
-        #     'address',
-        #     'address',
-        #     'uint256',
-        #     'uint256',
-        #     'uint256',
-        #     'uint256',
-        #     'uint256',
-        #     'uint256',
-        #     'uint256',
-        # ], [
-        #     '0x205b2af20A899ED61788300C5b268c512D6b1CCE',
-        #     1,
-        #     self.web3.utils.toChecksumAddress(request['address'].lower()),
-        #     self.web3.utils.toChecksumAddress(request['tokenBaseAddress'].lower()),
-        #     self.web3.utils.toChecksumAddress(request['tokenQuoteAddress'].lower()),
-        #     self.web3.utils.toChecksumAddress(request['tokenFeeAddress'].lower()),
-        #     request['amount'],
-        #     request['priceNumerator'],
-        #     request['priceDenominator'],
-        #     request['feeNumerator'],
-        #     request['feeDenominator'],
-        #     2 ** 128 - 1,
-        #     request['nonce'],
-        # ])
 
     def handle_errors(self, code, reason, url, method, headers, body, response, requestHeaders, requestBody):
         if response is None:
