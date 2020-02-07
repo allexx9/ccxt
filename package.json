@@ -52,7 +52,7 @@
     "ethereumjs-abi": "^0.6.8",
     "ethereumjs-util": "^6.2.0",
     "ethers": "^4.0.43",
-    "web3": "^1.2.5-rc.0"
+    "web3": "^1.2.5"
   },
   "devDependencies": {
     "ansicolor": "1.1.81",
@@ -496,7 +496,8 @@
     "TimeX",
     "bitz.com",
     "18.218.80.16",
-    "payruedex"
+    "payruedex",
+    "exchange.payrue.com"
   ],
   "collective": {
     "type": "opencollective",

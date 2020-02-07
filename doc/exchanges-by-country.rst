@@ -326,7 +326,7 @@ The ccxt library currently supports the following cryptocurrency exchange market
 +--------------------------+------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+-----+
 | US                       | |okex3|                | okex3                | `OKEX <https://www.okex.com>`__                                                              | 3     | `API <https://www.okex.com/docs/en/>`__                                                           |     |
 +--------------------------+------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+-----+
-| US                       | |payruedex|            | payruedex            | `payruedex <http://18.218.80.16>`__                                                          | \*    | `API <http://18.218.80.16>`__                                                                     |     |
+| US                       | |payruedex|            | payruedex            | `payruedex <https://exchange.payrue.com>`__                                                  | \*    | `API <https://exchange.payrue.com>`__                                                             |     |
 +--------------------------+------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+-----+
 | US                       | |poloniex|             | poloniex             | `Poloniex <https://www.poloniex.com/?utm_source=ccxt&utm_medium=web>`__                      | \*    | `API <https://docs.poloniex.com>`__                                                               |     |
 +--------------------------+------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+-----+
@@ -572,7 +572,7 @@ The ccxt library currently supports the following cryptocurrency exchange market
 .. |oceanex| image:: https://user-images.githubusercontent.com/1294454/58385970-794e2d80-8001-11e9-889c-0567cd79b78e.jpg
    :target: https://oceanex.pro/signup?referral=VE24QX
 .. |payruedex| image:: https://payrue.com/assets/img/svg/new/logo.svg
-   :target: http://18.218.80.16
+   :target: https://exchange.payrue.com
 .. |poloniex| image:: https://user-images.githubusercontent.com/1294454/27766817-e9456312-5ee6-11e7-9b3c-b628ca5626a5.jpg
    :target: https://www.poloniex.com/?utm_source=ccxt&utm_medium=web
 .. |theocean| image:: https://user-images.githubusercontent.com/1294454/43103756-d56613ce-8ed7-11e8-924e-68f9d4bcacab.jpg

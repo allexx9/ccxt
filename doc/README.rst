@@ -277,7 +277,7 @@ The ccxt library currently supports the following 123 cryptocurrency exchange ma
 +------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------+
 | |paymium|              | paymium              | `Paymium <https://www.paymium.com>`__                                                        | 1     | `API <https://github.com/Paymium/api-documentation>`__                                            |                    |
 +------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------+
-| |payruedex|            | payruedex            | `payruedex <http://18.218.80.16>`__                                                          | \*    | `API <http://18.218.80.16>`__                                                                     |                    |
+| |payruedex|            | payruedex            | `payruedex <https://exchange.payrue.com>`__                                                  | \*    | `API <https://exchange.payrue.com>`__                                                             |                    |
 +------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------+
 | |poloniex|             | poloniex             | `Poloniex <https://www.poloniex.com/?utm_source=ccxt&utm_medium=web>`__                      | \*    | `API <https://docs.poloniex.com>`__                                                               | |CCXT Certified|   |
 +------------------------+----------------------+----------------------------------------------------------------------------------------------+-------+---------------------------------------------------------------------------------------------------+--------------------+
@@ -932,7 +932,7 @@ For business inquiries: info@ccxt.trade
 .. |paymium| image:: https://user-images.githubusercontent.com/1294454/27790564-a945a9d4-5ff9-11e7-9d2d-b635763f2f24.jpg
    :target: https://www.paymium.com
 .. |payruedex| image:: https://payrue.com/assets/img/svg/new/logo.svg
-   :target: http://18.218.80.16
+   :target: https://exchange.payrue.com
 .. |rightbtc| image:: https://user-images.githubusercontent.com/1294454/42633917-7d20757e-85ea-11e8-9f53-fffe9fbb7695.jpg
    :target: https://www.rightbtc.com
 .. |southxchange| image:: https://user-images.githubusercontent.com/1294454/27838912-4f94ec8a-60f6-11e7-9e5d-bbf9bd50a559.jpg

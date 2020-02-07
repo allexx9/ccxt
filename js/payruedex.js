@@ -32,32 +32,33 @@ module.exports = class payruedex extends Exchange {
                 'fetchMarkets': true,
                 'fetchBalance': true,
                 'createOrder': true,
-                'fetchOHLCV': 'emulated',
+                'fetchOHLCV': true,
                 'cancelOrder': true,
                 'fetchOpenOrders': true,
                 'fetchTrades': false,
                 'fetchMyTrades': true,
                 'withdraw': true,
+                'fetchTradingFees': false,
             },
             'timeframes': {
-                '1m': 'M1',
-                '3m': 'M3',
-                '5m': 'M5',
-                '15m': 'M15',
-                '30m': 'M30', // default
-                '1h': 'H1',
-                '4h': 'H4',
-                '1d': 'D1',
-                '1w': 'D7',
+                '1m': '1m',
+                '3m': '3m',
+                '5m': '5m',
+                '15m': '15m',
+                '30m': '30m', // default
+                '1h': '1h',
+                '4h': '4h',
+                '1d': '1d',
+                '1w': '1w',
                 '1M': '1M',
             },
             'urls': {
-                'test': 'http://18.218.80.16',
+                'test': 'https://exchange.payrue.com',
                 'logo': 'https://payrue.com/assets/img/svg/new/logo.svg',
-                'api': 'http://18.218.80.16/trade/api/v2',
-                'www': 'http://18.218.80.16',
+                'api': 'https://exchange.payrue.com/trade/api/v2',
+                'www': 'https://exchange.payrue.com',
                 'doc': [
-                    'http://18.218.80.16',
+                    'https://exchange.payrue.com',
                 ],
             },
             'api': {
@@ -69,6 +70,7 @@ module.exports = class payruedex extends Exchange {
                         'trade_history',
                         'estimate_market_order',
                         'rates',
+                        'ohlcv',
                     ],
                 },
                 'private': {
@@ -231,75 +233,84 @@ module.exports = class payruedex extends Exchange {
     async fetchOHLCV (symbol, timeframe = '1h', since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets ();
         // let market = this.market (symbol);
-        const ids = symbol.split ('/');
         //
         //  const request = {
         //     'time_range': interval,
         // };
         //
+        if (since === undefined) {
+            since = '';
+        }
+        const market = this.market (symbol);
+        const id = market['id'];
         const parameters = {
             'tm_access_key': this.apiKey,  // 507d181c-69be-4a00-92ae-7fa89ccfcf27
             'exchange': 'ethereum', // ethereum
+            'interval': timeframe,
+            'since': since,
+            'pair': id,
         };
-        const response = await this.publicGetInfo (this.extend (parameters, params));
-        const tokenpairs = response['tokenPairs'];
-        let result = {};
-        for (let i = 0; i < tokenpairs.length; i++) {
-            // console.log (tokenpairs[i]['tokenBase']['symbol']);
-            // console.log (ids[0]);
-            if (tokenpairs[i]['tokenBase']['symbol'] === ids[0]) {
-                result = tokenpairs[i];
-            }
-        }
-        // console.log (result);
-        const baseVolume = this.safeFloat (result, 'totalVolume');
-        const baseDecimals = result['tokenBase']['decimalPlaces'];
-        const quoteDecimals = result['tokenQuote']['decimalPlaces'];
-        const priceLastNum = result['priceLastNumerator'];
-        const priceLastDenum = result['priceLastDenominator'];
-        const priceHighNum = result['priceHighNumerator'];
-        const priceHighDenum = result['priceHighDenominator'];
-        const priceLowNum = result['priceLowNumerator'];
-        const priceLowDenum = result['priceLowDenominator'];
-        let priceLast = 0;
-        if (priceLastNum !== 0) {
-            priceLast = this.getPrice (quoteDecimals, baseDecimals, priceLastNum, priceLastDenum);
-        }
-        let priceHigh = 0;
-        if (priceLastNum !== 0) {
-            priceHigh = this.getPrice (quoteDecimals, baseDecimals, priceHighNum, priceHighDenum);
-        }
-        let priceLow = 0;
-        if (priceLastNum !== 0) {
-            priceLow = this.getPrice (quoteDecimals, baseDecimals, priceLowNum, priceLowDenum);
-        }
-        // const ohlcvElement = {
-        //     'date': this.milliseconds (), // utc timestamp millis
-        //     'open': priceLast, // open price float
-        //     'high': priceHigh, // highest float
-        //     'low': priceLow, // lowest float
-        //     'close': priceLast, // closing
-        //     'volume': baseVolume, // volume
-        // };
-        const ohlcvElement1 = [
-            this.milliseconds (), // utc timestamp millis
-            priceLast, // open price float
-            priceHigh, // highest float
-            priceLow, // lowest float
-            priceLast, // closing
-            baseVolume, // volume
-        ];
-        const ohlcvElement2 = [
-            this.milliseconds (), // utc timestamp millis
-            priceLast, // open price float
-            priceHigh, // highest float
-            priceLow, // lowest float
-            priceLast, // closing
-            baseVolume, // volume
-        ];
-        const ohlcv = [ohlcvElement1, ohlcvElement2];
-        console.log (ohlcv);
-        return ohlcv;
+        const response = await this.publicGetOhlcv (this.extend (parameters, params));
+        return response['ohlcv'];
+        // const response = await this.publicGetInfo (this.extend (parameters, params));
+        // const tokenpairs = response['tokenPairs'];
+        // let result = {};
+        // for (let i = 0; i < tokenpairs.length; i++) {
+        //     // console.log (tokenpairs[i]['tokenBase']['symbol']);
+        //     // console.log (ids[0]);
+        //     if (tokenpairs[i]['tokenBase']['symbol'] === ids[0]) {
+        //         result = tokenpairs[i];
+        //     }
+        // }
+        // // console.log (result);
+        // const baseVolume = this.safeFloat (result, 'totalVolume');
+        // const baseDecimals = result['tokenBase']['decimalPlaces'];
+        // const quoteDecimals = result['tokenQuote']['decimalPlaces'];
+        // const priceLastNum = result['priceLastNumerator'];
+        // const priceLastDenum = result['priceLastDenominator'];
+        // const priceHighNum = result['priceHighNumerator'];
+        // const priceHighDenum = result['priceHighDenominator'];
+        // const priceLowNum = result['priceLowNumerator'];
+        // const priceLowDenum = result['priceLowDenominator'];
+        // let priceLast = 0;
+        // if (priceLastNum !== 0) {
+        //     priceLast = this.getPrice (quoteDecimals, baseDecimals, priceLastNum, priceLastDenum);
+        // }
+        // let priceHigh = 0;
+        // if (priceLastNum !== 0) {
+        //     priceHigh = this.getPrice (quoteDecimals, baseDecimals, priceHighNum, priceHighDenum);
+        // }
+        // let priceLow = 0;
+        // if (priceLastNum !== 0) {
+        //     priceLow = this.getPrice (quoteDecimals, baseDecimals, priceLowNum, priceLowDenum);
+        // }
+        // // const ohlcvElement = {
+        // //     'date': this.milliseconds (), // utc timestamp millis
+        // //     'open': priceLast, // open price float
+        // //     'high': priceHigh, // highest float
+        // //     'low': priceLow, // lowest float
+        // //     'close': priceLast, // closing
+        // //     'volume': baseVolume, // volume
+        // // };
+        // const ohlcvElement1 = [
+        //     this.milliseconds (), // utc timestamp millis
+        //     priceLast, // open price float
+        //     priceHigh, // highest float
+        //     priceLow, // lowest float
+        //     priceLast, // closing
+        //     baseVolume, // volume
+        // ];
+        // const ohlcvElement2 = [
+        //     this.milliseconds (), // utc timestamp millis
+        //     priceLast, // open price float
+        //     priceHigh, // highest float
+        //     priceLow, // lowest float
+        //     priceLast, // closing
+        //     baseVolume, // volume
+        // ];
+        // const ohlcv = [ohlcvElement1, ohlcvElement2];
+        // console.log (ohlcv);
+        // return ohlcv;
     }
 
     async fetchTickers (symbols = undefined, params = {}) {
@@ -343,6 +354,7 @@ module.exports = class payruedex extends Exchange {
         let ticker = undefined;
         const ids = symbol.split ('/');
         for (let i = 0; i < response['tokenPairs'].length; i++) {
+            console.log (response['tokenPairs'].length);
             if (response['tokenPairs'][i]['name'] === ids[0]) {
                 ticker = response['tokenPairs'][i];
             }

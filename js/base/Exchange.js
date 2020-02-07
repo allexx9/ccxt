@@ -1234,6 +1234,7 @@ module.exports = class Exchange {
 
     calculateFee (symbol, type, side, amount, price, takerOrMaker = 'taker', params = {}) {
         const market = this.markets[symbol]
+        console.log (market)
         const rate = market[takerOrMaker]
         const cost = parseFloat (this.costToPrecision (symbol, amount * price))
         return {

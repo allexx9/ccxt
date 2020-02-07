@@ -3,9 +3,9 @@
 const ccxt = require('./ccxt.js');
 
 const pd = new ccxt.payruedex({
-    'walletAddress': 'address',
-    'privateKey': 'key',
-    'apiKey': 'api_key',
+    'walletAddress': '0x3fEaf47f1FDd9c692710818bd1CBfcB49B958050',
+    'privateKey': '0xB62964D13C7D59708D8FA57DC070FBB8065F2A2BCE25D34CB5F0F5F9D94891E0',
+    'apiKey': '507d181c-69be-4a00-92ae-7fa89ccfcf27',
     'verbose': 'true',
 });
 
@@ -58,8 +58,10 @@ const hash = pd.getPayRueDexOrderHash(
     }
 );
 
-console.log(pd.signPayrueMessage(hash, pd.privateKey));
+// console.log(pd.signPayrueMessage(hash, pd.privateKey));
 
-pd.createOrder('IXT/ETH','market', 'sell', 1, 0.0000004)
-pd.createOrder('IXT/ETH','market', 'buy', 1, 0.0000004)
-console.log(pd.fetchOHLCV('IXT/ETH'))
+// pd.createOrder('IXT/ETH','market', 'sell', 0.5, 0.0000005);
+// pd.createOrder('IXT/ETH','market', 'buy', 0.7, 0.0000007);
+pd.createOrder('IXT/ETH','limit', 'sell', 0.9, 0.0000009);
+// pd.createOrder('IXT/ETH','limit', 'buy', 1, 0.000001);
+// console.log(pd.fetchOHLCV('IXT/ETH'));

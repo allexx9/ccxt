@@ -27,32 +27,33 @@ class payruedex extends Exchange {
                 'fetchMarkets' => true,
                 'fetchBalance' => true,
                 'createOrder' => true,
-                'fetchOHLCV' => 'emulated',
+                'fetchOHLCV' => true,
                 'cancelOrder' => true,
                 'fetchOpenOrders' => true,
                 'fetchTrades' => false,
                 'fetchMyTrades' => true,
                 'withdraw' => true,
+                'fetchTradingFees' => false,
             ),
             'timeframes' => array(
-                '1m' => 'M1',
-                '3m' => 'M3',
-                '5m' => 'M5',
-                '15m' => 'M15',
-                '30m' => 'M30', // default
-                '1h' => 'H1',
-                '4h' => 'H4',
-                '1d' => 'D1',
-                '1w' => 'D7',
+                '1m' => '1m',
+                '3m' => '3m',
+                '5m' => '5m',
+                '15m' => '15m',
+                '30m' => '30m', // default
+                '1h' => '1h',
+                '4h' => '4h',
+                '1d' => '1d',
+                '1w' => '1w',
                 '1M' => '1M',
             ),
             'urls' => array(
-                'test' => 'http://18.218.80.16',
+                'test' => 'https://exchange.payrue.com',
                 'logo' => 'https://payrue.com/assets/img/svg/new/logo.svg',
-                'api' => 'http://18.218.80.16/trade/api/v2',
-                'www' => 'http://18.218.80.16',
+                'api' => 'https://exchange.payrue.com/trade/api/v2',
+                'www' => 'https://exchange.payrue.com',
                 'doc' => array(
-                    'http://18.218.80.16',
+                    'https://exchange.payrue.com',
                 ),
             ),
             'api' => array(
@@ -64,6 +65,7 @@ class payruedex extends Exchange {
                         'trade_history',
                         'estimate_market_order',
                         'rates',
+                        'ohlcv',
                     ),
                 ),
                 'private' => array(
@@ -226,75 +228,84 @@ class payruedex extends Exchange {
     public function fetch_ohlcv ($symbol, $timeframe = '1h', $since = null, $limit = null, $params = array ()) {
         $this->load_markets();
         // $market = $this->market ($symbol);
-        $ids = explode('/', $symbol);
         //
         //  $request = array(
         //     'time_range' => interval,
         // );
         //
+        if ($since === null) {
+            $since = '';
+        }
+        $market = $this->market ($symbol);
+        $id = $market['id'];
         $parameters = array(
             'tm_access_key' => $this->apiKey,  // 507d181c-69be-4a00-92ae-7fa89ccfcf27
             'exchange' => 'ethereum', // ethereum
+            'interval' => $timeframe,
+            'since' => $since,
+            'pair' => $id,
         );
-        $response = $this->publicGetInfo (array_merge($parameters, $params));
-        $tokenpairs = $response['tokenPairs'];
-        $result = array();
-        for ($i = 0; $i < count($tokenpairs); $i++) {
-            // var_dump ($tokenpairs[$i]['tokenBase']['symbol']);
-            // var_dump ($ids[0]);
-            if ($tokenpairs[$i]['tokenBase']['symbol'] === $ids[0]) {
-                $result = $tokenpairs[$i];
-            }
-        }
-        // var_dump ($result);
-        $baseVolume = $this->safe_float($result, 'totalVolume');
-        $baseDecimals = $result['tokenBase']['decimalPlaces'];
-        $quoteDecimals = $result['tokenQuote']['decimalPlaces'];
-        $priceLastNum = $result['priceLastNumerator'];
-        $priceLastDenum = $result['priceLastDenominator'];
-        $priceHighNum = $result['priceHighNumerator'];
-        $priceHighDenum = $result['priceHighDenominator'];
-        $priceLowNum = $result['priceLowNumerator'];
-        $priceLowDenum = $result['priceLowDenominator'];
-        $priceLast = 0;
-        if ($priceLastNum !== 0) {
-            $priceLast = $this->get_price ($quoteDecimals, $baseDecimals, $priceLastNum, $priceLastDenum);
-        }
-        $priceHigh = 0;
-        if ($priceLastNum !== 0) {
-            $priceHigh = $this->get_price ($quoteDecimals, $baseDecimals, $priceHighNum, $priceHighDenum);
-        }
-        $priceLow = 0;
-        if ($priceLastNum !== 0) {
-            $priceLow = $this->get_price ($quoteDecimals, $baseDecimals, $priceLowNum, $priceLowDenum);
-        }
-        // $ohlcvElement = array(
-        //     'date' => $this->milliseconds (), // utc timestamp millis
-        //     'open' => $priceLast, // open price float
-        //     'high' => $priceHigh, // highest float
-        //     'low' => $priceLow, // lowest float
-        //     'close' => $priceLast, // closing
-        //     'volume' => $baseVolume, // volume
+        $response = $this->publicGetOhlcv (array_merge($parameters, $params));
+        return $response['ohlcv'];
+        // $response = $this->publicGetInfo (array_merge($parameters, $params));
+        // $tokenpairs = $response['tokenPairs'];
+        // $result = array();
+        // for ($i = 0; $i < count($tokenpairs); $i++) {
+        //     // var_dump ($tokenpairs[$i]['tokenBase']['symbol']);
+        //     // var_dump (ids[0]);
+        //     if ($tokenpairs[$i]['tokenBase']['symbol'] === ids[0]) {
+        //         $result = $tokenpairs[$i];
+        //     }
+        // }
+        // // var_dump ($result);
+        // $baseVolume = $this->safe_float($result, 'totalVolume');
+        // $baseDecimals = $result['tokenBase']['decimalPlaces'];
+        // $quoteDecimals = $result['tokenQuote']['decimalPlaces'];
+        // $priceLastNum = $result['priceLastNumerator'];
+        // $priceLastDenum = $result['priceLastDenominator'];
+        // $priceHighNum = $result['priceHighNumerator'];
+        // $priceHighDenum = $result['priceHighDenominator'];
+        // $priceLowNum = $result['priceLowNumerator'];
+        // $priceLowDenum = $result['priceLowDenominator'];
+        // $priceLast = 0;
+        // if ($priceLastNum !== 0) {
+        //     $priceLast = $this->get_price ($quoteDecimals, $baseDecimals, $priceLastNum, $priceLastDenum);
+        // }
+        // $priceHigh = 0;
+        // if ($priceLastNum !== 0) {
+        //     $priceHigh = $this->get_price ($quoteDecimals, $baseDecimals, $priceHighNum, $priceHighDenum);
+        // }
+        // $priceLow = 0;
+        // if ($priceLastNum !== 0) {
+        //     $priceLow = $this->get_price ($quoteDecimals, $baseDecimals, $priceLowNum, $priceLowDenum);
+        // }
+        // // $ohlcvElement = array(
+        // //     'date' => $this->milliseconds (), // utc timestamp millis
+        // //     'open' => $priceLast, // open price float
+        // //     'high' => $priceHigh, // highest float
+        // //     'low' => $priceLow, // lowest float
+        // //     'close' => $priceLast, // closing
+        // //     'volume' => $baseVolume, // volume
+        // // );
+        // $ohlcvElement1 = array(
+        //     $this->milliseconds (), // utc timestamp millis
+        //     $priceLast, // open price float
+        //     $priceHigh, // highest float
+        //     $priceLow, // lowest float
+        //     $priceLast, // closing
+        //     $baseVolume, // volume
         // );
-        $ohlcvElement1 = array(
-            $this->milliseconds (), // utc timestamp millis
-            $priceLast, // open price float
-            $priceHigh, // highest float
-            $priceLow, // lowest float
-            $priceLast, // closing
-            $baseVolume, // volume
-        );
-        $ohlcvElement2 = array(
-            $this->milliseconds (), // utc timestamp millis
-            $priceLast, // open price float
-            $priceHigh, // highest float
-            $priceLow, // lowest float
-            $priceLast, // closing
-            $baseVolume, // volume
-        );
-        $ohlcv = [$ohlcvElement1, $ohlcvElement2];
-        var_dump ($ohlcv);
-        return $ohlcv;
+        // $ohlcvElement2 = array(
+        //     $this->milliseconds (), // utc timestamp millis
+        //     $priceLast, // open price float
+        //     $priceHigh, // highest float
+        //     $priceLow, // lowest float
+        //     $priceLast, // closing
+        //     $baseVolume, // volume
+        // );
+        // $ohlcv = [$ohlcvElement1, $ohlcvElement2];
+        // var_dump ($ohlcv);
+        // return $ohlcv;
     }
 
     public function fetch_tickers ($symbols = null, $params = array ()) {
